@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "cdmm": {
+      "command": "/Users/siddharth/cdmm/.venv/bin/python",
+      "args": ["/Users/siddharth/cdmm/src/mcp_server.py"]
+    }
+  }
+}

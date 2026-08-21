@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cdmm.listener</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/siddharth/cdmm/.venv/bin/python</string>
+        <string>-u</string>
+        <string>/Users/siddharth/cdmm/src/listener.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/siddharth/cdmm</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/siddharth/cdmm/data/listener.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/siddharth/cdmm/data/listener.log</string>
+</dict>
+</plist>
