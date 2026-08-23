@@ -19,6 +19,7 @@ from telethon import TelegramClient, events
 
 from config import CHAT_NAMES, MONITORED_CHAT_IDS
 from db import ensure_tables
+from embed import embed_one
 from hydration import hydrate_media
 from ingest import process_message
 
@@ -29,9 +30,11 @@ API_HASH = os.environ["API_HASH"]
 PHONE = os.environ["TELEGRAM_PHONE"]
 SESSION_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sessions", "telegram_session")
 
-# Fire-and-forget hydration tasks must be kept referenced somewhere or
+# Fire-and-forget hydration/embed tasks must be kept referenced somewhere or
 # asyncio can garbage-collect them mid-run — this set is that reference.
 _background_tasks: set[asyncio.Task] = set()
+
+_HYDRATED_MEDIA_TYPES = ("voice", "audio", "video_note", "photo")
 
 
 def _chat_name(chat_id: int) -> str:
@@ -40,12 +43,30 @@ def _chat_name(chat_id: int) -> str:
 
 def _spawn_hydration(chat_id: int, message_id: int, media_type: str | None, media_path: str | None) -> None:
     """Kicks off transcription/vision as a background task, not awaited —
-    the listener keeps processing new messages while this runs."""
-    if media_type not in ("voice", "audio", "video_note", "photo") or not media_path:
+    the listener keeps processing new messages while this runs. Embedding
+    happens at the end of hydrate_media() itself, once the transcript/
+    description it produces actually exists."""
+    if media_type not in _HYDRATED_MEDIA_TYPES or not media_path:
         return
     task = asyncio.create_task(hydrate_media(chat_id, message_id, media_type, media_path))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
+
+
+def _spawn_embed(chat_id: int, message_id: int) -> None:
+    """Embeds immediately as a background task — for messages that don't go
+    through hydration (plain text, edits, or media types hydrate_media
+    doesn't handle) there's no transcript/description to wait for."""
+    task = asyncio.create_task(_embed_one_safe(chat_id, message_id))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+async def _embed_one_safe(chat_id: int, message_id: int) -> None:
+    try:
+        await asyncio.to_thread(embed_one, chat_id, message_id)
+    except Exception as e:
+        print(f"  ERROR embedding chat={chat_id} msg={message_id}: {e}")
 
 
 async def main() -> None:
@@ -67,7 +88,10 @@ async def main() -> None:
             ingested, media_type, media_path = await process_message(client, event.message, chat_id, chat_name)
             if ingested:
                 print(f"[{chat_name}] msg {event.message.id} ingested")
-                _spawn_hydration(chat_id, event.message.id, media_type, media_path)
+                if media_type in _HYDRATED_MEDIA_TYPES and media_path:
+                    _spawn_hydration(chat_id, event.message.id, media_type, media_path)
+                else:
+                    _spawn_embed(chat_id, event.message.id)
         except Exception as e:
             print(f"  ERROR processing msg in {chat_name}: {e}")
 
@@ -79,10 +103,12 @@ async def main() -> None:
             # Not re-hydrated on edit — an edited caption doesn't change the
             # media itself, and re-transcribing/re-describing unchanged media
             # would just waste compute. upsert_message's own edit handling
-            # already nulls out `embedding` on a real text edit; media
-            # hydration has no equivalent case to invalidate.
+            # already nulls out `embedding` on a real text edit, so re-embed
+            # here to pick that up (recombines the new text with whatever
+            # transcript/media_description already exists).
             await process_message(client, event.message, chat_id, chat_name)
             print(f"[{chat_name}] msg {event.message.id} edit captured")
+            _spawn_embed(chat_id, event.message.id)
         except Exception as e:
             print(f"  ERROR processing edit in {chat_name}: {e}")
 

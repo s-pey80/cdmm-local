@@ -96,6 +96,16 @@ def upsert_message(
         )
 
 
+def get_message_content(chat_id: int, message_id: int) -> tuple | None:
+    """(text, transcript, media_description) for one message — used by
+    embed.py's embed_one() for live per-message embedding."""
+    with _get_conn() as conn:
+        return conn.execute(
+            "SELECT text, transcript, media_description FROM messages WHERE chat_id = ? AND message_id = ?",
+            (chat_id, message_id),
+        ).fetchone()
+
+
 def set_transcript(chat_id: int, message_id: int, transcript: str) -> None:
     with _get_conn() as conn:
         conn.execute(

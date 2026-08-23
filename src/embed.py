@@ -21,12 +21,44 @@ import numpy as np
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
-from db import ensure_tables, get_unembedded, set_embedding
+from db import ensure_tables, get_message_content, get_unembedded, set_embedding
 
 load_dotenv()
 
 MODEL_NAME = os.environ.get("EMBED_MODEL", "BAAI/bge-large-en-v1.5")
 BATCH_SIZE = 32
+
+_model = None
+
+
+def _get_model():
+    """Lazy-loaded singleton — mirrors mcp_server.py's _get_embed_model() and
+    vision.py's _get_model(), so a live per-message call (embed_one, invoked
+    from listener.py/hydration.py) doesn't reload the model from disk every
+    single message within one process."""
+    global _model
+    if _model is None:
+        _model = SentenceTransformer(MODEL_NAME)
+    return _model
+
+
+def embed_one(chat_id: int, message_id: int) -> bool:
+    """Embeds a single message's current text+transcript+media_description,
+    combined the same way run_embedding() does. Called live from listener.py
+    (plain text/edits) and hydration.py (after a transcript/vision
+    description is saved). Returns False if there's nothing to embed yet
+    (e.g. a photo whose vision description hasn't landed)."""
+    row = get_message_content(chat_id, message_id)
+    if row is None:
+        return False
+    text, transcript, media_description = row
+    parts = [p.strip() for p in (text, transcript, media_description) if p and p.strip()]
+    if not parts:
+        return False
+    content = "\n\n".join(parts)
+    vec = _get_model().encode(content, normalize_embeddings=True, convert_to_numpy=True)
+    set_embedding(chat_id, message_id, vec.astype(np.float32).tobytes())
+    return True
 
 
 def run_embedding(limit: int = 200) -> int:
@@ -36,7 +68,7 @@ def run_embedding(limit: int = 200) -> int:
     if not rows:
         return 0
 
-    model = SentenceTransformer(MODEL_NAME)
+    model = _get_model()
 
     texts = []
     keys = []
