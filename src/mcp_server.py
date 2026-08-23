@@ -323,8 +323,9 @@ def semantic_search(
     limit: int = 10,
 ) -> str:
     """
-    Meaning-based search over message content and voice-note transcripts — finds
-    relevant messages even when they don't share exact keywords with the query.
+    Meaning-based search over message text, voice-note transcripts, and photo
+    vision descriptions — finds relevant messages even when they don't share
+    exact keywords with the query.
     Use this for vague/conceptual questions (e.g. "how has sentiment on ETH shifted",
     "find messages where people were worried about a rug") where search_messages'
     exact-substring matching would miss paraphrased or synonymous wording. For

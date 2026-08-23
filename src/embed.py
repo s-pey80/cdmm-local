@@ -1,7 +1,8 @@
 """Local embeddings for semantic search — sentence-transformers, fully on-device.
-Embeds message text (falling back to transcript for media-only messages), never
-raw_json. Vectors are stored L2-normalized so semantic_search in mcp_server.py can
-rank by a plain dot product instead of a full cosine-similarity computation.
+Embeds message text, transcript, and vision description combined (whichever are
+present), never raw_json. Vectors are stored L2-normalized so semantic_search in
+mcp_server.py can rank by a plain dot product instead of a full cosine-similarity
+computation.
 
 Model: BAAI/bge-large-en-v1.5 (1024-dim). BGE models are trained asymmetrically —
 only the QUERY side gets an instruction prefix, not the indexed documents — so
@@ -39,9 +40,9 @@ def run_embedding(limit: int = 200) -> int:
 
     texts = []
     keys = []
-    for chat_id, message_id, text, transcript in rows:
-        content = (text or "").strip() or (transcript or "").strip()
-        texts.append(content)
+    for chat_id, message_id, text, transcript, media_description in rows:
+        parts = [p.strip() for p in (text, transcript, media_description) if p and p.strip()]
+        texts.append("\n\n".join(parts))
         keys.append((chat_id, message_id))
 
     done = 0

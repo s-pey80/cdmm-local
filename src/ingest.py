@@ -1,7 +1,7 @@
 """Shared message-processing logic used by both listener.py (live) and backfill.py (historical)."""
 import io
 
-from telethon.tl.types import MessageService
+from telethon.tl.types import MessageMediaWebPage, MessageService
 
 from db import upsert_message
 from media_store import save_media
@@ -15,6 +15,13 @@ _MEDIA_EXT = {
 
 
 def detect_media_type(msg) -> str | None:
+    """None for a link-preview webpage — Telethon's msg.photo/video/audio/
+    document properties all transparently unwrap a webpage preview's embedded
+    thumbnail/document (see their own docstrings), which would otherwise get
+    misclassified as real attached media. Must check this before any of
+    those properties, not after."""
+    if isinstance(msg.media, MessageMediaWebPage):
+        return None
     if msg.photo:
         return "photo"
     if msg.video:

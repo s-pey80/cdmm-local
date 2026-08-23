@@ -153,16 +153,17 @@ def set_embedding(chat_id: int, message_id: int, vector: bytes) -> None:
 
 
 def get_unembedded(limit: int = 200) -> list[tuple]:
-    """Messages with text or a transcript but no embedding yet. Prefers text,
-    falls back to transcript for media-only messages (see embed.py)."""
+    """Messages with text, a transcript, or a vision description but no
+    embedding yet — embed.py combines whichever of the three are present."""
     with _get_conn() as conn:
         return conn.execute(
             """
-            SELECT chat_id, message_id, text, transcript FROM messages
+            SELECT chat_id, message_id, text, transcript, media_description FROM messages
             WHERE embedding IS NULL
               AND (
                   (text IS NOT NULL AND TRIM(text) != '')
                   OR (transcript IS NOT NULL AND TRIM(transcript) != '')
+                  OR (media_description IS NOT NULL AND TRIM(media_description) != '')
               )
             ORDER BY sent_at DESC
             LIMIT ?
