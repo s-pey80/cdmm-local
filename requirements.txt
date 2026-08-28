@@ -3,3 +3,4 @@ python-dotenv==1.0.1
 mcp>=1.0.0,<2.0.0
 mlx-whisper
 sentence-transformers
+python-telegram-bot==22.8
