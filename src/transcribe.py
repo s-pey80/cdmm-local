@@ -19,6 +19,7 @@ import mlx_whisper
 from dotenv import load_dotenv
 
 from db import ensure_tables, get_untranscribed, set_transcript
+from idle_unload import touch
 
 load_dotenv()
 
@@ -32,7 +33,9 @@ def transcribe_one(media_path: str) -> str:
     this doesn't reload from disk on every invocation within one process."""
     if not Path(media_path).exists():
         raise FileNotFoundError(media_path)
+    touch("whisper")
     result = mlx_whisper.transcribe(media_path, path_or_hf_repo=MODEL)
+    touch("whisper")
     return result["text"].strip()
 
 

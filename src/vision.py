@@ -24,6 +24,7 @@ from mlx_vlm import generate, load
 from mlx_vlm.prompt_utils import apply_chat_template
 
 from db import ensure_tables, get_unanalyzed_photos, set_media_description
+from idle_unload import touch
 
 load_dotenv()
 
@@ -56,9 +57,11 @@ def describe_one(image_path: str) -> str:
     hydration.py's live per-message path."""
     if not Path(image_path).exists():
         raise FileNotFoundError(image_path)
+    touch("vision")
     model, processor = _get_model()
     formatted_prompt = apply_chat_template(processor, model.config, DESCRIPTION_PROMPT, num_images=1)
     result = generate(model, processor, formatted_prompt, image=[image_path], verbose=False)
+    touch("vision")
     return result.text.strip()
 
 

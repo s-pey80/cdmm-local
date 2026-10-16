@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
 from db import ensure_tables, get_message_content, get_unembedded, set_embedding
+from idle_unload import touch
 
 load_dotenv()
 
@@ -56,7 +57,9 @@ def embed_one(chat_id: int, message_id: int) -> bool:
     if not parts:
         return False
     content = "\n\n".join(parts)
+    touch("embed")
     vec = _get_model().encode(content, normalize_embeddings=True, convert_to_numpy=True)
+    touch("embed")
     set_embedding(chat_id, message_id, vec.astype(np.float32).tobytes())
     return True
 
@@ -68,6 +71,7 @@ def run_embedding(limit: int = 200) -> int:
     if not rows:
         return 0
 
+    touch("embed")
     model = _get_model()
 
     texts = []
@@ -85,6 +89,7 @@ def run_embedding(limit: int = 200) -> int:
         for (chat_id, message_id), vec in zip(batch_keys, vectors):
             set_embedding(chat_id, message_id, vec.astype(np.float32).tobytes())
             done += 1
+        touch("embed")
         print(f"  [{done}/{len(rows)}] embedded")
 
     print(f"Embedding done. {done} messages embedded.")

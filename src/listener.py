@@ -21,6 +21,7 @@ from config import CHAT_NAMES, MONITORED_CHAT_IDS
 from db import ensure_tables
 from embed import embed_one
 from hydration import hydrate_media
+from idle_unload import unload_idle
 from ingest import process_message
 
 load_dotenv()
@@ -35,6 +36,8 @@ SESSION_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "sessions",
 _background_tasks: set[asyncio.Task] = set()
 
 _HYDRATED_MEDIA_TYPES = ("voice", "audio", "video_note", "photo")
+
+UNLOAD_CHECK_SECONDS = 60
 
 
 def _chat_name(chat_id: int) -> str:
@@ -67,6 +70,17 @@ async def _embed_one_safe(chat_id: int, message_id: int) -> None:
         await asyncio.to_thread(embed_one, chat_id, message_id)
     except Exception as e:
         print(f"  ERROR embedding chat={chat_id} msg={message_id}: {e}")
+
+
+async def _unload_idle_models_forever() -> None:
+    """Every minute, drop any model (embedding/vision/whisper) left unused for
+    idle_unload.UNLOAD_AFTER_SECONDS, so a quiet listener isn't holding GBs."""
+    while True:
+        await asyncio.sleep(UNLOAD_CHECK_SECONDS)
+        try:
+            unload_idle()
+        except Exception as e:
+            print(f"  ERROR unloading idle models: {e}")
 
 
 async def main() -> None:
@@ -111,6 +125,8 @@ async def main() -> None:
             _spawn_embed(chat_id, event.message.id)
         except Exception as e:
             print(f"  ERROR processing edit in {chat_name}: {e}")
+
+    unloader = asyncio.create_task(_unload_idle_models_forever())  # referenced so it isn't GC'd
 
     print(f"Listening on {len(MONITORED_CHAT_IDS)} chats...")
     await client.run_until_disconnected()
