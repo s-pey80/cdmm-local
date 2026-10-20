@@ -18,6 +18,14 @@ _Last checked 2026-08-28 against live state (`launchctl`, `sqlite3 data/cdmm.db`
 
 6. **`src/bot.py` (added 2026-08-28) has never been run.** It's a new standalone single-bot runner written for the open-sourced repo — a trimmed version of the `telegram-kb-bots` pattern (long-poll → `claude -p` with `mcp.json` → reply), so mastermind members get a working Telegram bot without needing the author's separate multi-bot project. It has not been tested against real Telegram or a real `claude -p` call yet. Before telling anyone it works: create a test bot token via @BotFather, set `CDMM_BOT_TOKEN`/`CDMM_BOT_ALLOWED_USER_IDS` in `.env`, run `python src/bot.py`, and confirm it actually answers a real question end-to-end.
 
+## Roadmap
+
+From an analysis of the bot's first 104 questions (2026-08-22 to 2026-10-16): about a quarter ask for prices or market caps through web search, and several ask whether a call worked.
+
+7. **A price tool** (CoinGecko / DexScreener APIs) for current and historical prices and market caps, by ticker or contract address. Faster and more reliable than web search for the most common data question, and it's what makes "did this call 3x?" and a caller's "hit rate" answerable without guessing.
+
+8. **A calls/positions tool** (the "op board"): every call with its caller, chat, date, entry price or guidance, later updates (trims, exits) and message link, kept current as messages arrive. Answers "what's open and where is it vs entry?" and "what's X's track record?" from one table instead of a fresh search each time. Builds on 7 for prices.
+
 ## Resolved since 2026-08-22
 
 - ~~cdmm_bot has never actually been run~~ — **Done.** `com.siddharth.bot.cdmm_bot` is loaded and running (`launchctl list`), and `~/telegram-kb-bots/state/cdmm_bot/history.csv` shows real conversation history (last updated today), confirming it can call the MCP tools and answer real questions.
